@@ -28,23 +28,33 @@
     Cache::config('croogo_types', $cacheConfig);
     Cache::config('croogo_vocabularies', $cacheConfig);
 
-    // themes (xml)
-    Cache::config('theme_xml', $cacheConfig);
-
     // controllers
     Cache::config('nodes_view', $cacheConfig);
     Cache::config('nodes_promoted', $cacheConfig);
     Cache::config('nodes_term', $cacheConfig);
     Cache::config('nodes_index', $cacheConfig);
     Cache::config('contacts_view', $cacheConfig);
-    
+
+/**
+ * Failed login attempts
+ *
+ * Default is 5 failed login attempts in every 5 minutes
+ */
+    Configure::write('User.failed_login_limit', 5);
+    Configure::write('User.failed_login_duration', 300);
+    Cache::config('users_login', array_merge($cacheConfig, array(
+        'duration' => '+' . Configure::read('User.failed_login_duration') . ' seconds',
+    )));
+
 /**
  * Settings
  */
     require_once APP.'vendors'.DS.'spyc'.DS.'spyc.php';
-    $settings = Spyc::YAMLLoad(file_get_contents(APP.'config'.DS.'settings.yml'));
-    foreach ($settings AS $settingKey => $settingValue) {
-        Configure::write($settingKey, $settingValue);
+    if (file_exists(CONFIGS.'settings.yml')) {
+        $settings = Spyc::YAMLLoad(file_get_contents(CONFIGS.'settings.yml'));
+        foreach ($settings AS $settingKey => $settingValue) {
+            Configure::write($settingKey, $settingValue);
+        }
     }
 
 /**

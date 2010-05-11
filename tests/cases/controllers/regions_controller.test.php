@@ -3,26 +3,36 @@ App::import('Controller', 'Regions');
 
 class TestRegionsController extends RegionsController {
 
-    var $name = 'Regions';
+    public $name = 'Regions';
 
-    var $autoRender = false;
+    public $autoRender = false;
 
-    function redirect($url, $status = null, $exit = true) {
+    public $testView = false;
+
+    public function redirect($url, $status = null, $exit = true) {
         $this->redirectUrl = $url;
     }
 
-    function render($action = null, $layout = null, $file = null) {
-        $this->renderedAction = $action;
+    public function render($action = null, $layout = null, $file = null) {
+        if (!$this->testView) {
+            $this->renderedAction = $action;
+        } else {
+            return parent::render($action, $layout, $file);
+        }
     }
 
-    function _stop($status = 0) {
+    public function _stop($status = 0) {
         $this->stopped = $status;
+    }
+
+    public function __securityError() {
+
     }
 }
 
 class RegionsControllerTestCase extends CakeTestCase {
 
-    var $fixtures = array(
+    public $fixtures = array(
         'aco',
         'aro',
         'aros_aco',
@@ -47,13 +57,32 @@ class RegionsControllerTestCase extends CakeTestCase {
         'vocabulary',
     );
 
-    function startTest() {
+    public function startTest() {
         $this->Regions = new TestRegionsController();
         $this->Regions->constructClasses();
         $this->Regions->params['controller'] = 'regions';
+        $this->Regions->params['pass'] = array();
+        $this->Regions->params['named'] = array();
     }
 
-    function testAdminAdd() {
+    public function testAdminIndex() {
+        $this->Regions->params['action'] = 'admin_index';
+        $this->Regions->params['url']['url'] = 'admin/regions';
+        $this->Regions->Component->initialize($this->Regions);
+        $this->Regions->Session->write('Auth.User', array(
+            'id' => 1,
+            'username' => 'admin',
+        ));
+        $this->Regions->beforeFilter();
+        $this->Regions->Component->startup($this->Regions);
+        $this->Regions->admin_index();
+
+        $this->Regions->testView = true;
+        $output = $this->Regions->render('admin_index');
+        $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
+    }
+
+    public function testAdminAdd() {
         $this->Regions->params['action'] = 'admin_add';
         $this->Regions->params['url']['url'] = 'admin/regions/add';
         $this->Regions->Component->initialize($this->Regions);
@@ -74,9 +103,13 @@ class RegionsControllerTestCase extends CakeTestCase {
 
         $newRegion = $this->Regions->Region->findByAlias('new_region');
         $this->assertEqual($newRegion['Region']['title'], 'new_region');
+
+        $this->Regions->testView = true;
+        $output = $this->Regions->render('admin_add');
+        $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
     }
 
-    function testAdminEdit() {
+    public function testAdminEdit() {
         $this->Regions->params['action'] = 'admin_edit';
         $this->Regions->params['url']['url'] = 'admin/regions/edit';
         $this->Regions->Component->initialize($this->Regions);
@@ -97,9 +130,13 @@ class RegionsControllerTestCase extends CakeTestCase {
 
         $right = $this->Regions->Region->findByAlias('right');
         $this->assertEqual($right['Region']['title'], 'right_modified');
+
+        $this->Regions->testView = true;
+        $output = $this->Regions->render('admin_edit');
+        $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
     }
 
-    function testAdminDelete() {
+    public function testAdminDelete() {
         $this->Regions->params['action'] = 'admin_delete';
         $this->Regions->params['url']['url'] = 'admin/regions/delete';
         $this->Regions->Component->initialize($this->Regions);
@@ -118,7 +155,7 @@ class RegionsControllerTestCase extends CakeTestCase {
         $this->assertFalse($hasAny);
     }
 
-    function endTest() {
+    public function endTest() {
         $this->Regions->Session->destroy();
         unset($this->Regions);
         ClassRegistry::flush();

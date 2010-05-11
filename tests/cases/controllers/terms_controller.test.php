@@ -3,26 +3,36 @@ App::import('Controller', 'Terms');
 
 class TestTermsController extends TermsController {
 
-    var $name = 'Terms';
+    public $name = 'Terms';
 
-    var $autoRender = false;
+    public $autoRender = false;
 
-    function redirect($url, $status = null, $exit = true) {
+    public $testView = false;
+
+    public function redirect($url, $status = null, $exit = true) {
         $this->redirectUrl = $url;
     }
 
-    function render($action = null, $layout = null, $file = null) {
-        $this->renderedAction = $action;
+    public function render($action = null, $layout = null, $file = null) {
+        if (!$this->testView) {
+            $this->renderedAction = $action;
+        } else {
+            return parent::render($action, $layout, $file);
+        }
     }
 
-    function _stop($status = 0) {
+    public function _stop($status = 0) {
         $this->stopped = $status;
+    }
+
+    public function __securityError() {
+
     }
 }
 
 class TermsControllerTestCase extends CakeTestCase {
 
-    var $fixtures = array(
+    public $fixtures = array(
         'aco',
         'aro',
         'aros_aco',
@@ -47,14 +57,33 @@ class TermsControllerTestCase extends CakeTestCase {
         'vocabulary',
     );
 
-    function startTest() {
+    public function startTest() {
         $this->Terms = new TestTermsController();
         $this->Terms->constructClasses();
         $this->Terms->params['named'] = array();
         $this->Terms->params['controller'] = 'terms';
+        $this->Terms->params['pass'] = array();
+        $this->Terms->params['named'] = array();
     }
 
-    function testAdminAdd() {
+    public function testAdminIndex() {
+        $this->Terms->params['action'] = 'admin_index';
+        $this->Terms->params['url']['url'] = 'admin/terms';
+        $this->Terms->Component->initialize($this->Terms);
+        $this->Terms->Session->write('Auth.User', array(
+            'id' => 1,
+            'username' => 'admin',
+        ));
+        $this->Terms->beforeFilter();
+        $this->Terms->Component->startup($this->Terms);
+        $this->Terms->admin_index();
+
+        $this->Terms->testView = true;
+        $output = $this->Terms->render('admin_index');
+        $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
+    }
+
+    public function testAdminAdd() {
         $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_add';
         $this->Terms->params['url']['url'] = 'admin/terms/add'; // categories
@@ -80,9 +109,13 @@ class TermsControllerTestCase extends CakeTestCase {
 
         $newTerm = $this->Terms->Term->findBySlug('new-term');
         $this->assertEqual($newTerm['Term']['title'], 'New Term');
+
+        $this->Terms->testView = true;
+        $output = $this->Terms->render('admin_add');
+        $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
     }
 
-    function testAdminEdit() {
+    public function testAdminEdit() {
         $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_edit';
         $this->Terms->params['url']['url'] = 'admin/terms/edit';
@@ -107,9 +140,13 @@ class TermsControllerTestCase extends CakeTestCase {
 
         $uncategorized = $this->Terms->Term->findBySlug('uncategorized');
         $this->assertEqual($uncategorized['Term']['title'], 'Uncategorized [modified]');
+
+        $this->Terms->testView = true;
+        $output = $this->Terms->render('admin_edit');
+        $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
     }
 
-    function testAdminDelete() {
+    public function testAdminDelete() {
         $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_delete';
         $this->Terms->params['url']['url'] = 'admin/terms/delete';
@@ -132,7 +169,7 @@ class TermsControllerTestCase extends CakeTestCase {
         $this->assertFalse($hasAny);
     }
 
-    function testAdminMove() {
+    public function testAdminMove() {
         $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_moveup';
         $this->Terms->params['url']['url'] = 'admin/terms/moveup';
@@ -151,7 +188,7 @@ class TermsControllerTestCase extends CakeTestCase {
         $this->__testAdminMoveDownWithSteps();
     }
 
-    function __testAdminMoveUp() {
+    private function __testAdminMoveUp() {
         // get current list with order for categories
         $list = $this->Terms->Term->find('list', array(
             'conditions' => array(
@@ -182,7 +219,7 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
     }
 
-    function __testAdminMoveUpWithSteps() {
+    private function __testAdminMoveUpWithSteps() {
         // add new term
         $this->Terms->Term->id = false;
         $this->Terms->Term->save(array(
@@ -225,7 +262,7 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
     }
 
-    function __testAdminMoveDown() {
+    private function __testAdminMoveDown() {
         $this->Terms->admin_movedown(1);
         $list = $this->Terms->Term->find('list', array(
             'conditions' => array(
@@ -240,7 +277,7 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
     }
 
-    function __testAdminMoveDownWithSteps() {
+    private function __testAdminMoveDownWithSteps() {
         $this->Terms->admin_movedown($this->Terms->newTermId, 2);
         $list = $this->Terms->Term->find('list', array(
             'conditions' => array(
@@ -255,7 +292,7 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
     }
 
-    function testAdminProcess() {
+    public function testAdminProcess() {
         $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_process';
         $this->Terms->params['url']['url'] = 'admin/terms/process';
@@ -272,7 +309,7 @@ class TermsControllerTestCase extends CakeTestCase {
         $this->__testAdminProcessDelete();
     }
 
-    function __testAdminProcessUnpublish() {
+    private function __testAdminProcessUnpublish() {
         $this->Terms->data = array(
             'Term' => array(
                 'action' => 'unpublish',
@@ -297,7 +334,7 @@ class TermsControllerTestCase extends CakeTestCase {
         $this->assertFalse($hasAny);
     }
 
-    function __testAdminProcessPublish() {
+    private function __testAdminProcessPublish() {
         $this->Terms->data = array(
             'Term' => array(
                 'action' => 'publish',
@@ -324,7 +361,7 @@ class TermsControllerTestCase extends CakeTestCase {
         $this->assertTrue($count, 2);
     }
 
-    function __testAdminProcessDelete() {
+    private function __testAdminProcessDelete() {
         $this->Terms->data = array(
             'Term' => array(
                 'action' => 'delete',
@@ -348,7 +385,7 @@ class TermsControllerTestCase extends CakeTestCase {
         $this->assertFalse($hasAny);
     }
 
-    function endTest() {
+    public function endTest() {
         $this->Terms->Session->destroy();
         unset($this->Terms);
         ClassRegistry::flush();

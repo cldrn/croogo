@@ -1,19 +1,11 @@
-# IDE
-nbproject/
-*.tmproj
-
 # App
 config/database.php
+config/settings.yml
 plugins/debug_kit/
+plugins/migrations/
 vendors/simpletest/
+views/themed/
 webroot/uploads/
 
 # Cake cache
-tmp/cache/cake_*
-tmp/cache/models/cake_*
-tmp/cache/persistent/cake_*
-tmp/cache/queries/cake_*
- 
-# Cake tmp dir
-tmp/logs/*.log
-tmp/sessions/*
+tmp/

@@ -18,23 +18,22 @@ class ExtensionsThemesController extends AppController {
  * @var string
  * @access public
  */
-    var $name = 'ExtensionsThemes';
+    public $name = 'ExtensionsThemes';
 /**
  * Models used by the Controller
  *
  * @var array
  * @access public
  */
-    var $uses = array('Setting', 'User');
+    public $uses = array('Setting', 'User');
 
-    function beforeFilter() {
+    public function beforeFilter() {
         parent::beforeFilter();
         App::import('Core', 'File');
         App::import('Core', 'Folder');
-        App::import('Xml');
     }
 
-    function admin_index() {
+    public function admin_index() {
         $this->set('title_for_layout', __('Themes', true));
 
         $themes = $this->Croogo->getThemes();
@@ -48,9 +47,13 @@ class ExtensionsThemesController extends AppController {
         $this->set(compact('themes', 'themesData', 'currentTheme'));
     }
 
-    function admin_activate($alias = null) {
+    public function admin_activate($alias = null) {
         if ($alias == 'default') {
             $alias = null;
+        }
+        if (!isset($this->params['named']['token']) || ($this->params['named']['token'] != $this->params['_Token']['key'])) {
+            $blackHoleCallback = $this->Security->blackHoleCallback;
+            $this->$blackHoleCallback();
         }
 
         $siteTheme = $this->Setting->findByKey('Site.theme');
@@ -61,22 +64,22 @@ class ExtensionsThemesController extends AppController {
         $this->redirect(array('action' => 'index'));
     }
 
-    function admin_add() {
+    public function admin_add() {
         $this->set('title_for_layout', __('Upload a new theme', true));
 
         if (!empty($this->data)) {
             $file = $this->data['Theme']['file'];
             unset($this->data['Theme']['file']);
 
-            // get Theme XML and alias
-            $xmlContent = '';
+            // get Theme YML and alias
+            $ymlContent = '';
             $zip = zip_open($file['tmp_name']);
             if ($zip) {
                 while ($zip_entry = zip_read($zip)) {
                     $zipEntryName = zip_entry_name($zip_entry);
-                    if (strstr($zipEntryName, 'theme.xml') &&
+                    if (strstr($zipEntryName, 'theme.yml') &&
                         zip_entry_open($zip, $zip_entry, "r")) {
-                        $xmlContent = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+                        $ymlContent = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
 
                         $zipEntryNameE = explode('/', $zipEntryName);
                         if (isset($zipEntryNameE['0'])) {
@@ -86,8 +89,8 @@ class ExtensionsThemesController extends AppController {
                 }
                 zip_close($zip);
             }
-            if ($xmlContent == '') {
-                $this->Session->setFlash(__('Invalid XML file', true));
+            if ($ymlContent == '') {
+                $this->Session->setFlash(__('Invalid YML file', true));
                 $this->redirect(array('action' => 'index'));
             }
 
@@ -138,22 +141,29 @@ class ExtensionsThemesController extends AppController {
         }
     }
 
-    function admin_editor() {
+    public function admin_editor() {
         $this->set('title_for_layout', __('Theme Editor', true));
     }
 
-    function admin_save() {
+    public function admin_save() {
 
     }
 
-    function admin_delete($alias = null) {
+    public function admin_delete($alias = null) {
         if ($alias == null) {
             $this->Session->setFlash(__('Invalid Theme.', true));
             $this->redirect(array('action' => 'index'));
         }
+        if (!isset($this->params['named']['token']) || ($this->params['named']['token'] != $this->params['_Token']['key'])) {
+            $blackHoleCallback = $this->Security->blackHoleCallback;
+            $this->$blackHoleCallback();
+        }
 
         if ($alias == 'default') {
             $this->Session->setFlash(__('Default theme cannot be deleted.', true));
+            $this->redirect(array('action' => 'index'));
+        } elseif ($alias == Configure::read('Site.theme')) {
+            $this->Session->setFlash(__('You cannot delete a theme that is currently active.', true));
             $this->redirect(array('action' => 'index'));
         }
 

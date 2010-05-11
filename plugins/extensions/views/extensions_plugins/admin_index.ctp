@@ -11,21 +11,31 @@
     <?php
         $tableHeaders =  $html->tableHeaders(array(
             '',
-            __('Plugin', true),
+            __('Alias', true),
+            __('Name', true),
+            __('Description', true),
+            __('Hooks Active', true),
             __('Actions', true),
         ));
         echo $tableHeaders;
 
         $rows = array();
-        foreach ($plugins AS $plugin) {
-            if (in_array($plugin, $corePlugins)) continue;
+        foreach ($plugins AS $pluginAlias => $pluginData) {
+            if (in_array($pluginAlias, $corePlugins)) continue;
 
             $actions  = '';
-            $actions .= ' ' . $html->link(__('Delete', true), array('action' => 'delete', $plugin), null, __('Are you sure?', true));
+            $actions .= ' ' . $html->link(__('Delete', true), array(
+                'action' => 'delete',
+                $pluginAlias,
+                'token' => $this->params['_Token']['key'],
+            ), null, __('Are you sure?', true));
 
             $rows[] = array(
                 '',
-                $plugin,
+                $pluginAlias,
+                $pluginData['name'],
+                $pluginData['description'],
+                $layout->status($pluginData['active']),
                 $actions,
             );
         }

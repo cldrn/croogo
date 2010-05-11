@@ -18,90 +18,40 @@ class ExtensionsHooksController extends AppController {
  * @var string
  * @access public
  */
-    var $name = 'ExtensionsHooks';
+    public $name = 'ExtensionsHooks';
 /**
  * Models used by the Controller
  *
  * @var array
  * @access public
  */
-    var $uses = array('Setting', 'User');
+    public $uses = array('Setting', 'User');
 
-    function beforeFilter() {
+    public function beforeFilter() {
         parent::beforeFilter();
         App::import('Core', 'File');
         APP::import('Core', 'Folder');
     }
 
-    function admin_index() {
+    public function admin_index() {
         $this->set('title_for_layout', __('Hooks', true));
 
         $hooks = array();
-        $plugins = Configure::listObjects('plugin');
-        $folder =& new Folder;
-
-        // Components
-        $appComponents = Configure::listObjects('component', APP.'controllers'.DS.'components');
-        $pluginComponents = array();
-        foreach ($plugins AS $plugin) {
-            $folder->path = APP.'plugins'.DS.Inflector::underscore($plugin).DS.'controllers'.DS.'components';
-            $content = $folder->read();
-            foreach ($content['1'] AS $componentFile) {
-                $pluginComponents[] = $plugin.'.'.Inflector::camelize(str_replace('.php', '', $componentFile));
-            }
+        $hooks['App'] = $this->Croogo->getHooks();
+        $plugins = $this->Croogo->getPlugins();
+        foreach ($plugins AS $pluginAlias) {
+            $camlizedPluginAlias = Inflector::camelize($pluginAlias);
+            $hooks[$camlizedPluginAlias] = $this->Croogo->getHooks($pluginAlias);
         }
-        $components = array_merge($appComponents, $pluginComponents);
-        $i = 0;
-        foreach ($components AS $component) {
-            $components[$i] = $component.'Component';
-            $i++;
-        }
-
-        // Helpers
-        $appHelpers = Configure::listObjects('helper', APP.'views'.DS.'helpers');
-        $pluginHelpers = array();
-        foreach ($plugins AS $plugin) {
-            $folder->path = APP.'plugins'.DS.Inflector::underscore($plugin).DS.'views'.DS.'helpers';
-            $content = $folder->read();
-            foreach ($content['1'] AS $helperFile) {
-                $pluginHelpers[] = $plugin.'.'.Inflector::camelize(str_replace('.php', '', $helperFile));
-            }
-        }
-        $helpers = array_merge($appHelpers, $pluginHelpers);
-        $i = 0;
-        foreach ($helpers AS $helper) {
-            $helpers[$i] = $helper.'Helper';
-            $i++;
-        }
-
-        // Get only hook helpers/components
-        $items = array_merge($components, $helpers);
-        foreach ($items AS $item) {
-            if (strstr(Inflector::underscore($item), '_hook_component') ||
-                strstr(Inflector::underscore($item), '_hook_helper')) {
-                $hooks[] = $item;
-            }
-        }
-        sort($hooks);
-
-        // Configuration
-        $siteHookComponents = explode(',', Configure::read('Hook.components'));
-        $siteHookHelpers = explode(',', Configure::read('Hook.helpers'));
-        //$siteHooks = array_merge($hookComponents, $hookHelpers);
-        $siteHooks = array();
-        foreach ($siteHookComponents AS $siteHookComponent) {
-            if (!$siteHookComponent) continue;
-            $siteHooks[] = $siteHookComponent.'Component';
-        }
-        foreach ($siteHookHelpers AS $siteHookHelper) {
-            if (!$siteHookHelper) continue;
-            $siteHooks[] = $siteHookHelper.'Helper';
-        }
-
-        $this->set(compact('hooks', 'siteHookComponents', 'siteHookHelpers', 'siteHooks'));
+        $this->set(compact('hooks'));
     }
 
-    function admin_toggle($hook = null) {
+    public function admin_toggle($hook = null) {
+        if (!isset($this->params['named']['token']) || ($this->params['named']['token'] != $this->params['_Token']['key'])) {
+            $blackHoleCallback = $this->Security->blackHoleCallback;
+            $this->$blackHoleCallback();
+        }
+
         if (strstr(Inflector::underscore($hook), '_helper')) {
             $configureKey = 'Hook.helpers';
             $hookType = 'Helper';

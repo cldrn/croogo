@@ -7,12 +7,12 @@
  * PHP versions 4 and 5
  *
  * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
- * Copyright 2005-2009, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * Copyright 2005-2010, Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
  * Redistributions of files must retain the above copyright notice.
  *
- * @copyright     Copyright 2005-2009, Cake Software Foundation, Inc. (http://cakefoundation.org)
+ * @copyright     Copyright 2005-2010, Cake Software Foundation, Inc. (http://cakefoundation.org)
  * @link          http://cakephp.org CakePHP(tm) Project
  * @package       cake
  * @subpackage    cake.app.config
@@ -29,6 +29,7 @@
  * Development Mode:
  * 	1: Errors and warnings shown, model caches refreshed, flash messages halted.
  * 	2: As in 1, but also with full debug messages and SQL output.
+ * 	3: As in 2, but also with full controller dump.
  *
  * In production mode, flash messages redirect after a time interval.
  * In development mode, you need to click the flash message to continue.
@@ -69,10 +70,20 @@
 	//Configure::write('App.baseUrl', env('SCRIPT_NAME'));
 
 /**
- * Uncomment the define below to use CakePHP prefix routes.
+ * Uncomment the define below to use CakePHP admin routes.
  *
- * The value of the define determines the names of the routes
- * and their associated controller actions:
+ * The value of the define determines the name of the route
+ * and its associated controller actions:
+ *
+ * 'admin' -> admin_index() and /admin/controller/index
+ * 'superuser' -> superuser_index() and /superuser/controller/index
+ *
+ * [Note Routing.admin is deprecated in 1.3.  Use Routing.prefixes instead]
+ */
+	//Configure::write('Routing.admin', 'admin');
+
+/**
+ * Uncomment the define below to use CakePHP prefix routes.
  *
  * Set to an array of prefixes you want to use in your application. Use for
  * admin or other prefixed routes.
@@ -82,11 +93,9 @@
  * Enables:
  *	`admin_index()` and `/admin/controller/index`
  *	`manager_index()` and `/manager/controller/index`
- *
- * [Note Routing.admin is deprecated in 1.3.  Use Routing.prefixes instead]
  */
-	//Configure::write('Routing.admin', 'admin');
 	Configure::write('Routing.prefixes', array('admin'));
+
 /**
  * Turn off all caching application-wide.
  *
@@ -200,17 +209,8 @@
 /**
  * A random numeric string (digits only) used to encrypt/decrypt strings.
  */
-	Configure::write('Security.cipher_seed', '7685930965745354249674968364519');
+	Configure::write('Security.cipherSeed', '7685930965745354249674968364519');
 
-/**
- * Apply timestamps with the last modified time to static assets (js, css, images).
- * Will append a querystring parameter containing the time the file was modified. This is
- * useful for invalidating browser caches.
- *
- * Set to `true` to apply timestamps, when debug = 0, or set to 'force' to always enable
- * timestamping.
- */
-	//Configure::write('Asset.timestamp', true);
 /**
  * Compress CSS output by removing comments, whitespace, repeating tags, etc.
  * This requires a/var/cache directory to be writable by the web server for caching.
@@ -241,6 +241,11 @@
  */
 	//date_default_timezone_set('UTC');
 
+/**
+ * If you are on PHP 5.3 uncomment this line and correct your server timezone
+ * to fix the date & time related errors.
+ */
+	//date_default_timezone_set('UTC');
 /**
  *
  * Cache Engine Configuration

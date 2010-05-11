@@ -18,16 +18,23 @@ class TypesController extends AppController {
  * @var string
  * @access public
  */
-    var $name = 'Types';
+    public $name = 'Types';
 /**
  * Models used by the Controller
  *
  * @var array
  * @access public
  */
-    var $uses = array('Type');
+    public $uses = array('Type');
 
-    function admin_index() {
+    public function beforeFilter() {
+        parent::beforeFilter();
+        if ($this->action == 'admin_edit') {
+            $this->Security->disabledFields = array('alias');
+        }
+    }
+
+    public function admin_index() {
         $this->set('title_for_layout', __('Type', true));
 
         $this->Type->recursive = 0;
@@ -35,7 +42,7 @@ class TypesController extends AppController {
         $this->set('types', $this->paginate());
     }
 
-    function admin_add() {
+    public function admin_add() {
         $this->set('title_for_layout', __('Add Type', true));
 
         if (!empty($this->data)) {
@@ -52,7 +59,7 @@ class TypesController extends AppController {
         $this->set(compact('vocabularies'));
     }
 
-    function admin_edit($id = null) {
+    public function admin_edit($id = null) {
         $this->set('title_for_layout', __('Edit Type', true));
 
         if (!$id && empty($this->data)) {
@@ -75,7 +82,7 @@ class TypesController extends AppController {
         $this->set(compact('vocabularies'));
     }
 
-    function admin_delete($id = null) {
+    public function admin_delete($id = null) {
         if (!$id) {
             $this->Session->setFlash(__('Invalid id for Type', true));
             $this->redirect(array('action'=>'index'));
@@ -89,6 +96,5 @@ class TypesController extends AppController {
             $this->redirect(array('action'=>'index'));
         }
     }
-
 }
 ?>

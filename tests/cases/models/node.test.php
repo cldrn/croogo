@@ -3,7 +3,7 @@ App::import('Model', 'Node');
 
 class NodeTestCase extends CakeTestCase {
 
-    var $fixtures = array(
+    public $fixtures = array(
         'aco',
         'aro',
         'aros_aco',
@@ -28,22 +28,22 @@ class NodeTestCase extends CakeTestCase {
         'vocabulary',
     );
 
-    function startTest() {
+    public function startTest() {
          $this->Node =& ClassRegistry::init('Node');
     }
 
-    function testCacheTerms() {
+    public function testCacheTerms() {
         $this->Node->data = array(
             'Node' => array(),
             'Term' => array(
                 'Term' => array(1, 2), // uncategorized, and announcements
             ),
         );
-        $this->Node->__cache_terms();
+        $this->Node->__cacheTerms();
         $this->assertEqual($this->Node->data['Node']['terms'], '{"1":"uncategorized","2":"announcements"}');
     }
 
-    function endTest() {
+    public function endTest() {
         unset($this->Node);
         ClassRegistry::flush();
     }

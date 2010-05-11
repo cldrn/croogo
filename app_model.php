@@ -19,16 +19,19 @@ class AppModel extends Model {
  *
  * @var string
  */
-    var $useCache = true;
+    public $useCache = true;
 /**
  * Override find function to use caching
  *
+ * Caching can be done either by unique names,
+ * or prefixes where a hashed value of $options array is appended to the name
+ * 
  * @param mixed $type 
  * @param array $options 
  * @return mixed
  * @access public
  */
-    function find($type, $options = array()) {
+    public function find($type, $options = array()) {
         if ($this->useCache) {
             $cachedResults = $this->_findCached($type, $options);
             if ($cachedResults) {
@@ -38,30 +41,41 @@ class AppModel extends Model {
 
         $args = func_get_args();
         $results = call_user_func_array(array('parent', 'find'), $args);
-        if (isset($options['cache']['name']) && 
-            isset($options['cache']['config']) &&
-            $this->useCache) {
-            Cache::write($options['cache']['name'], $results, $options['cache']['config']);
+        if ($this->useCache) {
+            if (isset($options['cache']['name']) && isset($options['cache']['config'])) {
+                $cacheName = $options['cache']['name'];
+            } elseif (isset($options['cache']['prefix']) && isset($options['cache']['config'])) {
+                $cacheName = $options['cache']['prefix'] . md5(serialize($options));
+            }
+
+            if (isset($cacheName)) {
+                $cacheName .= '_' . Configure::read('Config.language');
+                Cache::write($cacheName, $results, $options['cache']['config']);
+            }
         }
         return $results;
     }
 /**
  * Check if find() was already cached
  *
- * @param mixed $type 
- * @param array $options 
+ * @param mixed $type
+ * @param array $options
  * @return void
  * @access private
  */
     function _findCached($type, $options) {
-        if (isset($options['cache']['name']) &&
-            isset($options['cache']['config'])) {
-            $results = Cache::read($options['cache']['name'], $options['cache']['config']);
-            if ($results) {
-                return $results;
-            } else {
-                return false;
-            }
+        if (isset($options['cache']['name']) && isset($options['cache']['config'])) {
+            $cacheName = $options['cache']['name'];
+        } elseif (isset($options['cache']['prefix']) && isset($options['cache']['config'])) {
+            $cacheName = $options['cache']['prefix'] . md5(serialize($options));
+        } else {
+            return false;
+        }
+
+        $cacheName .= '_' . Configure::read('Config.language');
+        $results = Cache::read($cacheName, $options['cache']['config']);
+        if ($results) {
+            return $results;
         }
         return false;
     }
@@ -76,7 +90,7 @@ class AppModel extends Model {
  * @return boolean True on success, false on failure
  * @access public
  */
-    function updateAll($fields, $conditions = true) {
+    public function updateAll($fields, $conditions = true) {
         $args = func_get_args();
         $output = call_user_func_array(array('parent', 'updateAll'), $args);
         if ($output) {

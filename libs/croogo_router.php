@@ -26,8 +26,11 @@ class CroogoRouter {
  * @param array $params			An array matching the named elements in the route to regular expressions which that element should match.
  * @return void
  */
-    function connect($route, $default = array(), $params = array()) {
+    public function connect($route, $default = array(), $params = array()) {
         Router::connect($route, $default, $params);
+        if ($route == '/') {
+            $route = '';
+        }
         Router::connect('/:locale' . $route, $default, array_merge(array('locale' => '[a-z]{3}'), $params));
     }
 /**
@@ -35,7 +38,7 @@ class CroogoRouter {
  *
  * @return void
  */
-    function plugins() {
+    public function plugins() {
         $pluginRoutes = Configure::read('Hook.routes');
         if (!$pluginRoutes) {
             return;

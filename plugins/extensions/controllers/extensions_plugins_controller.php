@@ -18,14 +18,14 @@ class ExtensionsPluginsController extends AppController {
  * @var string
  * @access public
  */
-    var $name = 'ExtensionsPlugins';
+    public $name = 'ExtensionsPlugins';
 /**
  * Models used by the Controller
  *
  * @var array
  * @access public
  */
-    var $uses = array(
+    public $uses = array(
         'Setting',
         'User',
     );
@@ -35,30 +35,31 @@ class ExtensionsPluginsController extends AppController {
  * @var array
  * @access public
  */
-    var $corePlugins = array(
+    public $corePlugins = array(
         'acl',
         'extensions',
     );
 
-    function beforeFilter() {
+    public function beforeFilter() {
         parent::beforeFilter();
 
         App::import('Core', 'File');
         APP::import('Core', 'Folder');
     }
 
-    function admin_index() {
+    public function admin_index() {
         $this->set('title_for_layout', __('Plugins', true));
 
-        $folder =& new Folder;
-        $folder->path = APP . 'plugins';
-        $content = $folder->read();
-        $plugins = $content['0'];
+        $pluginAliases = $this->Croogo->getPlugins();
+        $plugins = array();
+        foreach ($pluginAliases AS $pluginAlias) {
+            $plugins[$pluginAlias] = $this->Croogo->getPluginData($pluginAlias);
+        }
         $this->set('corePlugins', $this->corePlugins);
-        $this->set(compact('content', 'plugins'));
+        $this->set(compact('plugins'));
     }
 
-    function admin_add() {
+    public function admin_add() {
         $this->set('title_for_layout', __('Upload a new plugin', true));
 
         if (!empty($this->data)) {
@@ -138,9 +139,17 @@ class ExtensionsPluginsController extends AppController {
         }
     }
 
-    function admin_delete($plugin = null) {
+    public function admin_delete($plugin = null) {
         if (!$plugin) {
             $this->Session->setFlash(__('Invalid plugin', true));
+            $this->redirect(array('action' => 'index'));
+        }
+        if (!isset($this->params['named']['token']) || ($this->params['named']['token'] != $this->params['_Token']['key'])) {
+            $blackHoleCallback = $this->Security->blackHoleCallback;
+            $this->$blackHoleCallback();
+        }
+        if ($this->Croogo->pluginIsActive($plugin)) {
+            $this->Session->setFlash(__('You cannot delete a plugin that is currently active.', true));
             $this->redirect(array('action' => 'index'));
         }
 
