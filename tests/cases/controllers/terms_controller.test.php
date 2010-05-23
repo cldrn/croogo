@@ -46,10 +46,11 @@ class TermsControllerTestCase extends CakeTestCase {
         'message',
         'meta',
         'node',
-        'nodes_term',
+        'nodes_taxonomy',
         'region',
         'role',
         'setting',
+        'taxonomy',
         'term',
         'type',
         'types_vocabulary',
@@ -68,7 +69,7 @@ class TermsControllerTestCase extends CakeTestCase {
 
     public function testAdminIndex() {
         $this->Terms->params['action'] = 'admin_index';
-        $this->Terms->params['url']['url'] = 'admin/terms';
+        $this->Terms->params['url']['url'] = 'admin/terms/index/1';
         $this->Terms->Component->initialize($this->Terms);
         $this->Terms->Session->write('Auth.User', array(
             'id' => 1,
@@ -76,7 +77,13 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
         $this->Terms->beforeFilter();
         $this->Terms->Component->startup($this->Terms);
-        $this->Terms->admin_index();
+        $this->Terms->admin_index(1); // ID of categories
+
+        $expectedTree = array(
+            '1' => 'Uncategorized',
+            '2' => 'Announcements',
+        );
+        $this->assertEqual($this->Terms->viewVars['termsTree'], $expectedTree);
 
         $this->Terms->testView = true;
         $output = $this->Terms->render('admin_index');
@@ -84,39 +91,76 @@ class TermsControllerTestCase extends CakeTestCase {
     }
 
     public function testAdminAdd() {
-        $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_add';
-        $this->Terms->params['url']['url'] = 'admin/terms/add'; // categories
+        $this->Terms->params['url']['url'] = 'admin/terms/add/1';
         $this->Terms->Component->initialize($this->Terms);
         $this->Terms->Session->write('Auth.User', array(
             'id' => 1,
             'username' => 'admin',
         ));
         $this->Terms->data = array(
+            'Taxonomy' => array(
+                'parent_id' => null,
+            ),
             'Term' => array(
-                'vocabulary_id' => 1, // categories
-                'title' => 'New Term',
-                'slug' => 'new-term',
+                'title' => 'New Category',
+                'slug' => 'new-category',
+                'description' => 'category description here',
             ),
         );
         $this->Terms->beforeFilter();
         $this->Terms->Component->startup($this->Terms);
-        $this->Terms->admin_add();
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
+        $this->Terms->admin_add(1); // ID of categories
+        $this->assertEqual($this->Terms->redirectUrl, array('action' => 'index', 1));
 
-        $newTerm = $this->Terms->Term->findBySlug('new-term');
-        $this->assertEqual($newTerm['Term']['title'], 'New Term');
+        $termsTree = $this->Terms->Term->Taxonomy->getTree('categories');
+        $termsTreeSlugs = array_keys($termsTree);
+        $expected = array(
+            'uncategorized',
+            'announcements',
+            'new-category',
+        );
+        $this->assertEqual($termsTreeSlugs, $expected);
 
         $this->Terms->testView = true;
         $output = $this->Terms->render('admin_add');
         $this->assertFalse(strpos($output, '<pre class="cake-debug">'));
     }
 
+    public function testAdminAddWithParent() {
+        $this->Terms->params['action'] = 'admin_add';
+        $this->Terms->params['url']['url'] = 'admin/terms/add/1';
+        $this->Terms->Component->initialize($this->Terms);
+        $this->Terms->Session->write('Auth.User', array(
+            'id' => 1,
+            'username' => 'admin',
+        ));
+        $this->Terms->data = array(
+            'Taxonomy' => array(
+                'parent_id' => 1, // Uncategorized
+            ),
+            'Term' => array(
+                'title' => 'New Category',
+                'slug' => 'new-category',
+                'description' => 'category description here',
+            ),
+        );
+        $this->Terms->beforeFilter();
+        $this->Terms->Component->startup($this->Terms);
+        $this->Terms->admin_add(1); // ID of categories
+        $this->assertEqual($this->Terms->redirectUrl, array('action' => 'index', 1));
+
+        $termsTree = $this->Terms->Term->Taxonomy->getTree('categories');
+        $termsTreeTitles = array_values($termsTree);
+        $expected = array(
+            'Uncategorized',
+            '_New Category',
+            'Announcements',
+        );
+        $this->assertEqual($termsTreeTitles, $expected);
+    }
+
     public function testAdminEdit() {
-        $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_edit';
         $this->Terms->params['url']['url'] = 'admin/terms/edit';
         $this->Terms->Component->initialize($this->Terms);
@@ -125,21 +169,26 @@ class TermsControllerTestCase extends CakeTestCase {
             'username' => 'admin',
         ));
         $this->Terms->data = array(
+            'Taxonomy' => array(
+                'parent_id' => null,
+            ),
             'Term' => array(
-                'id' => 1,
-                'title' => 'Uncategorized [modified]',
+                'title' => 'New Category',
+                'slug' => 'new-category',
+                'description' => 'category description here',
             ),
         );
         $this->Terms->beforeFilter();
         $this->Terms->Component->startup($this->Terms);
-        $this->Terms->admin_edit();
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
+        $this->Terms->admin_edit(1, 1); // ID of Uncategorized and Categories
+        $this->assertEqual($this->Terms->redirectUrl, array('action' => 'index', 1));
 
-        $uncategorized = $this->Terms->Term->findBySlug('uncategorized');
-        $this->assertEqual($uncategorized['Term']['title'], 'Uncategorized [modified]');
+        $termsTree = $this->Terms->Term->Taxonomy->getTree('categories');
+        $expected = array(
+            'new-category' => 'New Category',
+            'announcements' => 'Announcements',
+        );
+        $this->assertEqual($termsTree, $expected);
 
         $this->Terms->testView = true;
         $output = $this->Terms->render('admin_edit');
@@ -147,7 +196,6 @@ class TermsControllerTestCase extends CakeTestCase {
     }
 
     public function testAdminDelete() {
-        $this->Terms->params['named']['vocabulary'] = 1;
         $this->Terms->params['action'] = 'admin_delete';
         $this->Terms->params['url']['url'] = 'admin/terms/delete';
         $this->Terms->Component->initialize($this->Terms);
@@ -157,20 +205,17 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
         $this->Terms->beforeFilter();
         $this->Terms->Component->startup($this->Terms);
-        $this->Terms->admin_delete(1); // ID of uncategorized
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
+        $this->Terms->admin_delete(1, 1); // ID of Uncategorized and Categories
+        $this->assertEqual($this->Terms->redirectUrl, array('action' => 'index', 1));
 
-        $hasAny = $this->Terms->Term->hasAny(array(
-            'Term.slug' => 'uncategorized',
-        ));
-        $this->assertFalse($hasAny);
+        $termsTree = $this->Terms->Term->Taxonomy->getTree('categories');
+        $expected = array(
+            'announcements' => 'Announcements',
+        );
+        $this->assertEqual($termsTree, $expected);
     }
 
-    public function testAdminMove() {
-        $this->Terms->params['named']['vocabulary'] = 1;
+    public function testAdminMoveup() {
         $this->Terms->params['action'] = 'admin_moveup';
         $this->Terms->params['url']['url'] = 'admin/terms/moveup';
         $this->Terms->Component->initialize($this->Terms);
@@ -180,122 +225,20 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
         $this->Terms->beforeFilter();
         $this->Terms->Component->startup($this->Terms);
+        $this->Terms->admin_moveup(2, 1); // ID of Announcements and Categories
+        $this->assertEqual($this->Terms->redirectUrl, array('action' => 'index', 1));
 
-        $this->__testAdminMoveUp();
-        $this->__testAdminMoveUpWithSteps();
-
-        $this->__testAdminMoveDown();
-        $this->__testAdminMoveDownWithSteps();
+        $termsTree = $this->Terms->Term->Taxonomy->getTree('categories');
+        $expected = array(
+            'announcements' => 'Announcements',
+            'uncategorized' => 'Uncategorized',
+        );
+        $this->assertEqual($termsTree, $expected);
     }
 
-    private function __testAdminMoveUp() {
-        // get current list with order for categories
-        $list = $this->Terms->Term->find('list', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-            ),
-            'order' => 'Term.lft ASC',
-        ));
-        $this->assertEqual($list, array(
-            '1' => 'Uncategorized',
-            '2' => 'Announcements',
-        ));
-
-        // move up
-        $this->Terms->admin_moveup(2, 1);
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
-        $list = $this->Terms->Term->find('list', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-            ),
-            'order' => 'Term.lft ASC',
-        ));
-        $this->assertEqual($list, array(
-            '2' => 'Announcements',
-            '1' => 'Uncategorized',
-        ));
-    }
-
-    private function __testAdminMoveUpWithSteps() {
-        // add new term
-        $this->Terms->Term->id = false;
-        $this->Terms->Term->save(array(
-            'vocabulary_id' => 1,
-            'title' => 'New Term',
-            'slug' => 'new-term',
-        ));
-        $newTermId = $this->Terms->Term->id;
-        $this->Terms->newTermId = $newTermId;
-
-        // get current list with order
-        $list = $this->Terms->Term->find('list', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-            ),
-            'order' => 'Term.lft ASC',
-        ));
-        $this->assertEqual($list, array(
-            '1' => 'Uncategorized',
-            '2' => 'Announcements',
-            $newTermId => 'New Term',
-        ));
-
-        // move up with steps
-        $this->Terms->admin_moveup($newTermId, 2);
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
-        $list = $this->Terms->Term->find('list', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-            ),
-            'order' => 'Term.lft ASC',
-        ));
-        $this->assertEqual($list, array(
-            $newTermId => 'New Term',
-            '1' => 'Uncategorized',
-            '2' => 'Announcements',
-        ));
-    }
-
-    private function __testAdminMoveDown() {
-        $this->Terms->admin_movedown(1);
-        $list = $this->Terms->Term->find('list', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-            ),
-            'order' => 'Term.lft ASC',
-        ));
-        $this->assertEqual($list, array(
-            $this->Terms->newTermId => 'New Term',
-            '2' => 'Announcements',
-            '1' => 'Uncategorized',
-        ));
-    }
-
-    private function __testAdminMoveDownWithSteps() {
-        $this->Terms->admin_movedown($this->Terms->newTermId, 2);
-        $list = $this->Terms->Term->find('list', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-            ),
-            'order' => 'Term.lft ASC',
-        ));
-        $this->assertEqual($list, array(
-            '2' => 'Announcements',
-            '1' => 'Uncategorized',
-            $this->Terms->newTermId => 'New Term',
-        ));
-    }
-
-    public function testAdminProcess() {
-        $this->Terms->params['named']['vocabulary'] = 1;
-        $this->Terms->params['action'] = 'admin_process';
-        $this->Terms->params['url']['url'] = 'admin/terms/process';
+    public function testAdminMovedown() {
+        $this->Terms->params['action'] = 'admin_movedown';
+        $this->Terms->params['url']['url'] = 'admin/terms/movedown';
         $this->Terms->Component->initialize($this->Terms);
         $this->Terms->Session->write('Auth.User', array(
             'id' => 1,
@@ -303,86 +246,15 @@ class TermsControllerTestCase extends CakeTestCase {
         ));
         $this->Terms->beforeFilter();
         $this->Terms->Component->startup($this->Terms);
+        $this->Terms->admin_movedown(1, 1); // ID of Uncategorized and Categories
+        $this->assertEqual($this->Terms->redirectUrl, array('action' => 'index', 1));
 
-        $this->__testAdminProcessUnpublish();
-        $this->__testAdminProcessPublish();
-        $this->__testAdminProcessDelete();
-    }
-
-    private function __testAdminProcessUnpublish() {
-        $this->Terms->data = array(
-            'Term' => array(
-                'action' => 'unpublish',
-                '1' => array(
-                    'id' => 1,
-                ),
-                '2' => array(
-                    'id' => 1,
-                ),
-            ),
+        $termsTree = $this->Terms->Term->Taxonomy->getTree('categories');
+        $expected = array(
+            'announcements' => 'Announcements',
+            'uncategorized' => 'Uncategorized',
         );
-        $this->Terms->admin_process();
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
-
-        $hasAny = $this->Terms->Term->hasAny(array(
-            'Term.vocabulary_id' => 1,
-            'Term.status' => 1,
-        ));
-        $this->assertFalse($hasAny);
-    }
-
-    private function __testAdminProcessPublish() {
-        $this->Terms->data = array(
-            'Term' => array(
-                'action' => 'publish',
-                '1' => array(
-                    'id' => 1,
-                ),
-                '2' => array(
-                    'id' => 1,
-                ),
-            ),
-        );
-        $this->Terms->admin_process();
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
-
-        $count = $this->Terms->Term->find('count', array(
-            'conditions' => array(
-                'Term.vocabulary_id' => 1,
-                'Term.status' => 1,
-            ),
-        ));
-        $this->assertTrue($count, 2);
-    }
-
-    private function __testAdminProcessDelete() {
-        $this->Terms->data = array(
-            'Term' => array(
-                'action' => 'delete',
-                '1' => array(
-                    'id' => 1,
-                ),
-                '2' => array(
-                    'id' => 1,
-                ),
-            ),
-        );
-        $this->Terms->admin_process();
-        $this->assertEqual($this->Terms->redirectUrl, array(
-            'action' => 'index',
-            'vocabulary' => 1,
-        ));
-
-        $hasAny = $this->Terms->Term->hasAny(array(
-            'Term.id' => array(1, 2),
-        ));
-        $this->assertFalse($hasAny);
+        $this->assertEqual($termsTree, $expected);
     }
 
     public function endTest() {
