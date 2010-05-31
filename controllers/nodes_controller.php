@@ -123,7 +123,9 @@ class NodesController extends AppController {
                     'Taxonomy' => array(),
                 );
                 foreach ($this->data['TaxonomyData'] AS $vocabularyId => $taxonomyIds) {
-                    $this->data['Taxonomy']['Taxonomy'] = array_merge($this->data['Taxonomy']['Taxonomy'], $taxonomyIds);
+                    if (is_array($taxonomyIds)) {
+                        $this->data['Taxonomy']['Taxonomy'] = array_merge($this->data['Taxonomy']['Taxonomy'], $taxonomyIds);
+                    }
                 }
             }
             $this->Node->create();
@@ -188,7 +190,9 @@ class NodesController extends AppController {
                     'Taxonomy' => array(),
                 );
                 foreach ($this->data['TaxonomyData'] AS $vocabularyId => $taxonomyIds) {
-                    $this->data['Taxonomy']['Taxonomy'] = array_merge($this->data['Taxonomy']['Taxonomy'], $taxonomyIds);
+                    if (is_array($taxonomyIds)) {
+                        $this->data['Taxonomy']['Taxonomy'] = array_merge($this->data['Taxonomy']['Taxonomy'], $taxonomyIds);
+                    }
                 }
             }
             $this->data['Node']['path'] = $this->Croogo->getRelativePath(array(
@@ -361,7 +365,9 @@ class NodesController extends AppController {
                 $this->Session->setFlash(__('Invalid content type.', true));
                 $this->redirect('/');
             }
-
+            if (isset($type['Params']['nodes_per_page'])) {
+                $this->paginate['Node']['limit'] = $type['Params']['nodes_per_page'];
+            }
             $this->paginate['Node']['conditions']['Node.type'] = $type['Type']['alias'];
             $this->set('title_for_layout', $type['Type']['title']);
         }
@@ -390,6 +396,9 @@ class NodesController extends AppController {
         }
 
         $this->set(compact('type', 'nodes'));
+        $this->__viewFallback(array(
+            'index_' . $type['Type']['alias'],
+        ));
     }
 
     public function term() {
@@ -443,7 +452,9 @@ class NodesController extends AppController {
                 $this->Session->setFlash(__('Invalid content type.', true));
                 $this->redirect('/');
             }
-
+            if (isset($type['Params']['nodes_per_page'])) {
+                $this->paginate['Node']['limit'] = $type['Params']['nodes_per_page'];
+            }
             $this->paginate['Node']['conditions']['Node.type'] = $type['Type']['alias'];
             $this->set('title_for_layout', $term['Term']['title']);
         }
@@ -472,6 +483,10 @@ class NodesController extends AppController {
         }
 
         $this->set(compact('term', 'type', 'nodes'));
+        $this->__viewFallback(array(
+            'term_' . $term['Term']['id'],
+            'term_' . $type['Type']['alias'],
+        ));
     }
 
     public function promoted() {
@@ -502,7 +517,9 @@ class NodesController extends AppController {
                 $this->Session->setFlash(__('Invalid content type.', true));
                 $this->redirect('/');
             }
-
+            if (isset($type['Params']['nodes_per_page'])) {
+                $this->paginate['Node']['limit'] = $type['Params']['nodes_per_page'];
+            }
             $this->paginate['Node']['conditions']['Node.type'] = $type['Type']['alias'];
             $this->set('title_for_layout', $type['Type']['title']);
             $this->set(compact('type'));
@@ -533,7 +550,7 @@ class NodesController extends AppController {
         $this->set(compact('nodes'));
     }
 
-    public function search($type = null) {
+    public function search($typeAlias = null) {
         if (!isset($this->params['named']['q'])) {
             $this->redirect('/');
         }
@@ -550,7 +567,7 @@ class NodesController extends AppController {
                         'Node.title LIKE' => '%' . $q . '%',
                         'Node.excerpt LIKE' => '%' . $q . '%',
                         'Node.body LIKE' => '%' . $q . '%',
-                        //'Node.terms LIKE' => '%"' . $q . '"%',
+                        'Node.terms LIKE' => '%"' . $q . '"%',
                     ),
                 ),
                 array(
@@ -569,13 +586,26 @@ class NodesController extends AppController {
             ),
             'User',
         );
-        if ($type) {
-            $this->paginate['Node']['conditions']['Node.type'] = $type;
+        if ($typeAlias) {
+            $type = $this->Node->Taxonomy->Vocabulary->Type->findByAlias($typeAlias);
+            if (!isset($type['Type']['id'])) {
+                $this->Session->setFlash(__('Invalid content type.', true));
+                $this->redirect('/');
+            }
+            if (isset($type['Params']['nodes_per_page'])) {
+                $this->paginate['Node']['limit'] = $type['Params']['nodes_per_page'];
+            }
+            $this->paginate['Node']['conditions']['Node.type'] = $typeAlias;
         }
 
         $nodes = $this->paginate('Node');
         $this->set('title_for_layout', sprintf(__('Search Results: %s', true), $q));
         $this->set(compact('q', 'nodes'));
+        if ($typeAlias) {
+            $this->__viewFallback(array(
+                'search_' . $typeAlias,
+            ));
+        }
     }
 
     public function view($id = null) {
@@ -666,15 +696,24 @@ class NodesController extends AppController {
 
         $this->set('title_for_layout', $node['Node']['title']);
         $this->set(compact('node', 'type', 'comments'));
+        $this->__viewFallback(array(
+            'view_' . $node['Node']['id'],
+            'view_' . $type['Type']['alias'],
+        ));
+    }
 
-        if (isset($node['CustomFields']['theme'])) {
-            $this->theme = $node['CustomFields']['theme'];
+    private function __viewFallback($views) {
+        if (is_string($views)) {
+            $views = array($views);
         }
-        if (isset($node['CustomFields']['layout'])) {
-            $this->layout = $node['CustomFields']['layout'];
-        }
-        if (isset($node['CustomFields']['view'])) {
-            $this->render($node['CustomFields']['view']);
+
+        if ($this->theme) {
+            foreach ($views AS $view) {
+                $viewPath = APP.'views'.DS.'themed'.DS.$this->theme.DS.Inflector::slug($this->name).DS.$view.$this->ext;
+                if (file_exists($viewPath)) {
+                    return $this->render($view);
+                }
+            }
         }
     }
 
