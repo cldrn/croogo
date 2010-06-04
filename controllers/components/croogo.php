@@ -331,35 +331,23 @@ class CroogoComponent extends Object {
                 ),
                 'recursive' => '-1',
             ));
-
             if (isset($vocabulary['Vocabulary']['id'])) {
-                $tree = $this->controller->Node->Taxonomy->getTree($vocabulary['Vocabulary']['alias'], array(
-                    'key' => 'id',
-                    'value' => 'title',
-                    'cache' => array(
-                        'prefix' => 'nodes_taxonomy_' . $vocabulary['Vocabulary']['alias'],
-                        'config' => 'croogo_vocabularies',
-                    ),
-                ));
-                $termIds = array_keys($tree);
-                $terms = $this->controller->Node->Taxonomy->Term->find('list', array(
+                $threaded = $this->controller->Node->Taxonomy->find('threaded', array(
                     'conditions' => array(
-                        'Term.id' => $termIds,
+                        'Taxonomy.vocabulary_id' => $vocabulary['Vocabulary']['id'],
                     ),
-                    'fields' => array(
-                        'Term.slug',
-                        'Term.title',
+                    'contain' => array(
+                        'Term',
                     ),
-                    'order' => 'Term.slug ASC',
                     'cache' => array(
-                        'name' => 'croogo_vocabularies_'.$vocabulary['Vocabulary']['id'].'_terms',
+                        'name' => 'croogo_vocabulary_threaded_'.$vocabularyAlias,
                         'config' => 'croogo_vocabularies',
                     ),
-                    'recursive' => '-1',
+                    'order' => 'Taxonomy.lft ASC',
                 ));
                 $this->vocabularies_for_layout[$vocabularyAlias] = array();
                 $this->vocabularies_for_layout[$vocabularyAlias]['Vocabulary'] = $vocabulary['Vocabulary'];
-                $this->vocabularies_for_layout[$vocabularyAlias]['list'] = $terms;
+                $this->vocabularies_for_layout[$vocabularyAlias]['threaded'] = $threaded;
             }
         }
     }
@@ -394,17 +382,18 @@ class CroogoComponent extends Object {
         $_nodeOptions = array(
             'find' => 'all',
             'conditions' => array(
+                'Node.status' => 1,
                 'OR' => array(
                     'Node.visibility_roles' => '',
                     'Node.visibility_roles LIKE' => '%"' . $this->roleId . '"%',
                 ),
             ),
-            'order' => 'Node.id DESC',
+            'order' => 'Node.created DESC',
             'limit' => 5,
         );
 
         foreach ($nodes AS $alias => $options) {
-            $options = array_merge($_nodeOptions, $options);
+            $options = Set::merge($_nodeOptions, $options);
             $options['limit'] = str_replace('"', '', $options['limit']);
             $node = $this->controller->Node->find($options['find'], array(
                 'conditions' => $options['conditions'],
@@ -836,6 +825,24 @@ class CroogoComponent extends Object {
         $pluginData = Spyc::YAMLLoad(file_get_contents($ymlLocation));
         $pluginData['active'] = $this->pluginIsActive($alias);
         return $pluginData;
+    }
+/**
+ * Check if plugin is dependent on any other plugin.
+ * If yes, check if that plugin is available in plugins directory.
+ *
+ * @param  string $plugin plugin alias (underscrored)
+ * @return boolean
+ */
+    public function checkPluginDependency($plugin = null) {
+        $pluginData = $this->getPluginData($plugin);
+        if (isset($pluginData['dependencies']['plugins']) && is_array($pluginData['dependencies']['plugins'])) {
+            foreach ($pluginData['dependencies']['plugins'] AS $p) {
+                if (!is_dir(APP.'plugins'.DS.$p)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 /**
  * Get hooks
